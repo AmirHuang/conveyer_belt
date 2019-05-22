@@ -1,10 +1,11 @@
 # _*_ coding: utf-8 _*_
-# @time     : 2019/05/22
+# @time     : 2019/05/23
 # @Author   : Amir
 # @Site     : 
-# @File     : 5_22ssh.py
+# @File     : 5_23_start_thread_1.py
 # @Software : PyCharm
 
+import threading
 import paramiko
 import time
 
@@ -23,6 +24,7 @@ def ssh(ip, username, password, cmd):
         result = ssh_shell.recv(1024000).decode()
         ssh.close()
         print('成功')
+        print(threading.current_thread().name)
         return result
     except:
         print('Error')
@@ -30,28 +32,12 @@ def ssh(ip, username, password, cmd):
 
 
 if __name__ == '__main__':
-    import redis
-    pool = redis.ConnectionPool(host='127.0.0.1', port=6379)
-    conn = redis.Redis(connection_pool=pool)
-    p = conn.pipeline()
     cmd = ['ls /bin -a', 'ls /bin -a']
     username = 'root'
     password = '123456'
     ip = '192.168.58.128'
-    n = 1
-    # for i in range(100):
-    #     print(n)
-    #     result = ssh(ip, username, password, cmd)
-    #     # print(result)
-    #     p.set(str(n), result)
-    #     n += 1
-    #     p.execute()
-
-
-    mac_set = set()
-    for i in range(1, 30):
-        mac = conn.get(i)
-        mac_set.add(mac)
-        print(len(mac))
-
-    print(len(mac_set))
+    for i in range(5):
+        t = threading.Thread(target=ssh, args=(ip, username, password, cmd))
+        print(threading.current_thread().name)
+        t.start()
+        # t.join()

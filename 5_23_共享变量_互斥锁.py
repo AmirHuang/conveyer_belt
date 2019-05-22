@@ -1,8 +1,8 @@
 # _*_ coding: utf-8 _*_
-# @time     : 2019/05/22
+# @time     : 2019/05/23
 # @Author   : Amir
 # @Site     : 
-# @File     : 5_22_thread.py
+# @File     : 5_23_共享变量_互斥锁.py
 # @Software : PyCharm
 
 import paramiko
@@ -10,8 +10,10 @@ import time
 import threading, queue
 import redis
 import random
+import threading
+import time
 
-lock = threading.Lock()
+url_lists = []
 
 
 def ssh(ip, username, password, cmd):
@@ -34,33 +36,31 @@ def ssh(ip, username, password, cmd):
         return 'Error'
 
 
-def product(q, p):
-    while not q.empty():
-        # with lock:
-        ip = q.get()
+def get_urls():
+    # 模拟爬取url
+    global url_lists
+    ip_list = []
+    for i in range(10):
+        ip_list.append('192.168.58.128')
+    for ip in ip_list:
         result = ssh(ip, username, password, cmd)
-        if result != 'Error':
-            import uuid
-            key = uuid.uuid4()
-            conn.set(key, result)
-            p.put(key)
-        time.sleep(1)
-    # 任务完成
-    # p.task_done()
+        import uuid
+        xx = uuid.uuid4()
+        conn.set(xx, result)
+        url_lists.append(xx)
 
 
-def custom(p):
-    while not p.empty():
-        key = p.get()
-        result = conn.get(key)
+def get_detail():
+    # 模拟爬取页面内容
+    global url_lists
+    if len(url_lists):
+        xx = url_lists.pop()
+        result = conn.get(xx)
         print(result)
-        time.sleep(2)
-    # 任务完成
-    # p.task_done()
+        time.sleep(3)
 
 
 if __name__ == '__main__':
-
     pool = redis.ConnectionPool(host='127.0.0.1', port=6379)
     conn = redis.Redis(connection_pool=pool)
     # pi = conn.pipeline()
@@ -68,18 +68,12 @@ if __name__ == '__main__':
     username = 'root'
     password = '123456'
     # ip = '192.168.58.128'
-    q = queue.Queue()
-    p = queue.Queue()
-    for i in range(10):
-        ip = '192.168.58.128'
-        q.put(ip)
-
-    # 启动生产者
-    for i in range(4):
-        threading.Thread(target=product, args=(q, p)).start()
-    time.sleep(10)
-    # 启动消费者
-    for i in range(1):
-        threading.Thread(target=custom, args=(p,)).start()
-
-# 这个nice
+    # 爬取url链接
+    for i in range(3):
+        thread_get_urls = threading.Thread(target=get_urls)
+        thread_get_urls.start()
+    time.sleep(3)
+    t = threading.Thread(target=get_detail)
+    t.start()
+    # thread_get_urls.join()
+    # t.join()

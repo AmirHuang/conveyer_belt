@@ -1,17 +1,16 @@
 # _*_ coding: utf-8 _*_
-# @time     : 2019/05/22
+# @time     : 2019/05/23
 # @Author   : Amir
 # @Site     : 
-# @File     : 5_22_thread.py
+# @File     : 5_23_product_customs.py
 # @Software : PyCharm
 
+
+import threading, queue, random, time
+import threading
 import paramiko
 import time
-import threading, queue
 import redis
-import random
-
-lock = threading.Lock()
 
 
 def ssh(ip, username, password, cmd):
@@ -25,61 +24,49 @@ def ssh(ip, username, password, cmd):
         for m in cmd:
             res = ssh_shell.sendall(m + '\n')
             time.sleep(2)
-        result = ssh_shell.recv(102400).decode()
+        result = ssh_shell.recv(1024000).decode()
         ssh.close()
         print('成功')
+        print(threading.current_thread().name)
         return result
     except:
         print('Error')
         return 'Error'
 
 
-def product(q, p):
-    while not q.empty():
-        # with lock:
-        ip = q.get()
-        result = ssh(ip, username, password, cmd)
-        if result != 'Error':
-            import uuid
-            key = uuid.uuid4()
-            conn.set(key, result)
-            p.put(key)
-        time.sleep(1)
+def product(ip, username, password, cmd, q):
+    result = ssh(ip, username, password, cmd)
+    conn.set(ip)
     # 任务完成
-    # p.task_done()
+    q.task_done()
 
 
-def custom(p):
-    while not p.empty():
-        key = p.get()
-        result = conn.get(key)
-        print(result)
+def custom(id, q):
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        print('消费者%d消费了%d' % (id, item))
         time.sleep(2)
     # 任务完成
-    # p.task_done()
+    q.task_done()
 
 
 if __name__ == '__main__':
-
     pool = redis.ConnectionPool(host='127.0.0.1', port=6379)
     conn = redis.Redis(connection_pool=pool)
-    # pi = conn.pipeline()
-    cmd = ['ls /bin -a', 'ifconfig']
+    # p = conn.pipeline()
+    cmd = ['ls /bin -a', 'ls /bin -a']
     username = 'root'
     password = '123456'
-    # ip = '192.168.58.128'
+    ip = '192.168.58.128'
+    # 消息队列
     q = queue.Queue()
-    p = queue.Queue()
-    for i in range(10):
-        ip = '192.168.58.128'
-        q.put(ip)
 
     # 启动生产者
     for i in range(4):
-        threading.Thread(target=product, args=(q, p)).start()
-    time.sleep(10)
-    # 启动消费者
-    for i in range(1):
-        threading.Thread(target=custom, args=(p,)).start()
+        threading.Thread(target=product, args=(i, q)).start()
 
-# 这个nice
+    # 启动消费者
+    for i in range(3):
+        threading.Thread(target=custom, args=(i, q)).start()
