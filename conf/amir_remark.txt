@@ -1,0 +1,1 @@
+nginx.conf 这是nginx的默认配置文件，只需要添加一个include
